@@ -108,6 +108,19 @@ $$\boxed{I_m = \frac{V_m}{|Z|} \qquad \varphi = -\theta_Z}$$
 | Capacitive | $X < 0$ | $-90^\circ$ to $0^\circ$ | leads the voltage |
 | Resonance | $X = 0$ | $0^\circ$ | in phase, and at its maximum $V_m/R$ |
 
+**Picture to remember.** Draw $V$ flat along the real axis. Draw $Z = R + jX$ as an arrow from the origin. $R$ is always positive, so $Z$ always points right. $X$ decides whether it points up or down.
+
+Since $I = V/Z$, the angle of $I$ is minus the angle of $Z$. So $I$ is the **mirror image of $Z$ in the real axis**:
+
+- Inductor: $X > 0$, so $Z$ points up and $I$ points down. $I$ is behind $V$ (clockwise), so $I$ **lags**.
+- Capacitor: $X < 0$, so $Z$ points down and $I$ points up. $I$ is ahead of $V$ (anticlockwise), so $I$ **leads**.
+
+![Z and I in the complex plane](diagrams/impedance_plane.svg)
+
+Phasors turn anticlockwise, so "ahead" means anticlockwise. The arrow lengths are not to scale, because $V$, $Z$ and $I$ have different units.
+
+Mnemonic: **ELI the ICE man**. In an inductor (L), the voltage (E) comes before the current (I). In a capacitor (C), the current (I) comes before the voltage (E).
+
 Resonance occurs when $X_L = X_C$, at $\omega_0 = 1/\sqrt{LC}$.
 
 **Example.** Take $R = 10$ Ω and $X = 10$ Ω. Then:
