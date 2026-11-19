@@ -92,7 +92,7 @@ $$Z = R + j\left(\omega L - \frac{1}{\omega C}\right) = R + jX$$
 
 **Polar form.** Write $Z$ as a magnitude and an angle (see the appendix):
 
-$$Z = |Z|\,e^{j\theta_Z} \qquad |Z| = \sqrt{R^2 + X^2} \qquad \theta_Z = \operatorname{atan2}(X, R)$$
+$$Z = |Z|\,e^{j\theta_Z} \qquad |Z| = \sqrt{R^2 + X^2} \qquad \theta_Z = \text{atan2}(X, R)$$
 
 **The phase shift.** To divide complex numbers in polar form, divide the magnitudes and subtract the angles:
 
@@ -141,7 +141,7 @@ Try it: [demos/rlc_series.html](../demos/rlc_series.html).
 | Definition | $j^2 = -1$, so $\frac{1}{j} = -j$ |
 | Rectangular form | $z = a + jb$ |
 | Polar form | $z = r\,e^{j\theta} = r(\cos\theta + j\sin\theta)$ |
-| Rectangular to polar | $r = \sqrt{a^2 + b^2}$, $\theta = \operatorname{atan2}(b, a)$ |
+| Rectangular to polar | $r = \sqrt{a^2 + b^2}$, $\theta = \text{atan2}(b, a)$ |
 | Polar to rectangular | $a = r\cos\theta$, $b = r\sin\theta$ |
 | Multiply | multiply the magnitudes, add the angles |
 | Divide | divide the magnitudes, subtract the angles |
