@@ -1,0 +1,14 @@
+[project]
+name = "powerflow"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.5.5",
+]
+
+[dependency-groups]
+dev = [
+    "pandapower>=3.3.3",
+    "plotly>=7.1.0",
+    "schemdraw>=0.23",
+]

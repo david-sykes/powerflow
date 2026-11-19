@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Series RLC</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --panel: #ffffff; --fg: #1d1d1b; --muted: #6b6a64; --grid: #e2e0d8;
+    --v: #2563eb; --i: #dc2626; --r: #15803d; --l: #9333ea; --c: #c2410c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151513; --panel: #1e1e1b; --fg: #ebeae4; --muted: #9b9a93; --grid: #2e2e2a;
+      --v: #60a5fa; --i: #f87171; --r: #4ade80; --l: #c084fc; --c: #fb923c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, sans-serif; }
+  main { max-width: 1150px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .layout { display: grid; grid-template-columns: 270px 1fr; gap: 16px; align-items: start; }
+  .right { display: grid; gap: 16px; }
+  .plots { display: grid; grid-template-columns: 1fr 260px; gap: 16px; }
+  @media (max-width: 1000px) { .plots { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 14px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  label { display: flex; justify-content: space-between; margin: 12px 0 2px; font-size: 13px; color: var(--muted); }
+  label b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 14px; }
+  td { padding: 4px 0; border-top: 1px solid var(--grid); }
+  td:last-child { text-align: right; }
+  .verdict { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+  .why { color: var(--muted); margin: 0; min-height: 3em; }
+  canvas { width: 100%; display: block; }
+  .legend { font-size: 13px; color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .sw { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+  button { font: inherit; font-size: 14px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--grid); background: var(--panel); color: var(--fg); cursor: pointer; }
+  button.on { border-color: var(--fg); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Series RLC circuit</h1>
+  <p class="sub">Source v(t) = V<sub>m</sub> cos(ωt), V<sub>m</sub> = 325 V. Pick an example, then move the sliders.</p>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Circuit</h2>
+      <label>R <b id="Rv"></b></label><input type="range" id="R">
+      <label>L <b id="Lv"></b></label><input type="range" id="L">
+      <label>C <b id="Cv"></b></label><input type="range" id="C">
+      <label>f <b id="fv"></b></label><input type="range" id="f">
+      <table id="out"></table>
+    </div>
+
+    <div class="right">
+      <div class="panel">
+        <p class="verdict" id="verdict"></p>
+        <p class="why" id="why"></p>
+      </div>
+
+      <div class="panel">
+        <h2>Which element dominates? (ohms)</h2>
+        <canvas id="bars"></canvas>
+        <div class="note">In series, the element with the <b>largest</b> ohms wins. X<sub>L</sub> pushes the current to lag and X<sub>C</sub> pushes it to lead. They cancel each other, so only the difference X = X<sub>L</sub> − X<sub>C</sub> matters.</div>
+      </div>
+
+      <div class="plots">
+        <div class="panel">
+          <h2>Waveforms</h2>
+          <canvas id="wave"></canvas>
+          <div class="legend">
+            <span><span class="sw" style="background:var(--v)"></span>v(t), left axis</span>
+            <span><span class="sw" style="background:var(--i)"></span>i(t), right axis</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Phasors</h2>
+          <canvas id="phasor"></canvas>
+          <div class="legend">
+            <span><span class="sw" style="background:var(--v)"></span>V</span>
+            <span><span class="sw" style="background:var(--i)"></span>I</span>
+          </div>
+          <div class="note">The angle between the arrows is φ. The arrows are fixed here (the e<sup>jωt</sup> rotation is removed).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const VM = 325;
+const STEPS = 1000;
+const PARAMS = {
+  R: { min: 1,    max: 200,  log: true, fmt: v => v.toFixed(1) + ' Ω' },
+  L: { min: 1e-4, max: 1,    log: true, fmt: v => (v * 1e3).toFixed(1) + ' mH' },
+  C: { min: 1e-6, max: 1e-1, log: true, fmt: v => v >= 1e-3 ? (v * 1e3).toFixed(1) + ' mF' : (v * 1e6).toFixed(1) + ' µF' },
+  f: { min: 10,   max: 200,  log: false, fmt: v => v.toFixed(0) + ' Hz' },
+};
+
+// All presets at 50 Hz. Reactances: XL = 2*pi*50*L, XC = 1/(2*pi*50*C).
+const PRESETS = [
+  { name: 'R dominant',              R: 100, L: 0.01,   C: 0.01,   f: 50 },
+  { name: 'L dominant',              R: 5,   L: 0.3,    C: 0.01,   f: 50 },
+  { name: 'C dominant (small C)',    R: 5,   L: 0.001,  C: 30e-6,  f: 50 },
+  { name: 'Huge C (acts as a wire)', R: 10,  L: 0.0001, C: 0.1,    f: 50 },
+  { name: 'Resonance',               R: 10,  L: 0.1013, C: 100e-6, f: 50 },
+];
+
+const $ = id => document.getElementById(id);
+const toVal = (p, s) => p.log ? p.min * Math.pow(p.max / p.min, s / STEPS) : p.min + (p.max - p.min) * s / STEPS;
+const toPos = (p, v) => Math.round(STEPS * (p.log ? Math.log(v / p.min) / Math.log(p.max / p.min) : (v - p.min) / (p.max - p.min)));
+
+const state = {};
+let active = 0;
+for (const k in PARAMS) {
+  const el = $(k);
+  el.min = 0; el.max = STEPS;
+  el.addEventListener('input', () => { state[k] = toVal(PARAMS[k], +el.value); active = -1; update(); });
+}
+PRESETS.forEach((p, n) => {
+  const b = document.createElement('button');
+  b.textContent = p.name;
+  b.addEventListener('click', () => load(n));
+  $('presets').appendChild(b);
+});
+function load(n) {
+  active = n;
+  for (const k in PARAMS) { state[k] = PRESETS[n][k]; $(k).value = toPos(PARAMS[k], state[k]); }
+  update();
+}
+
+let sol;
+function solve() {
+  const { R, L, C, f } = state;
+  const w = 2 * Math.PI * f;
+  const XL = w * L, XC = 1 / (w * C), X = XL - XC;
+  const Zmag = Math.hypot(R, X);
+  const thZ = Math.atan2(X, R);
+  return { R, w, f, XL, XC, X, Zmag, thZ, Im: VM / Zmag, phi: -thZ };
+}
+
+const deg = r => r * 180 / Math.PI;
+const fmt = (v, d = 2) => Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d);
+
+function explain(s) {
+  const big = Math.max(s.R, s.XL, s.XC);
+  if (Math.abs(deg(s.phi)) < 3 && s.XL > 3 * s.R && s.XC > 3 * s.R)
+    return ['Resonance: current in phase with voltage',
+      `X<sub>L</sub> and X<sub>C</sub> are both large (${fmt(s.XL, 1)} Ω and ${fmt(s.XC, 1)} Ω), but they are equal and cancel. Only R is left, so there is no phase shift and the current is at its maximum, V<sub>m</sub>/R.`];
+  if (big === s.R)
+    return [`R dominant: almost no phase shift (φ = ${deg(s.phi).toFixed(1)}°)`,
+      `R = ${fmt(s.R, 1)} Ω is much larger than the net reactance X = ${fmt(Math.abs(s.X) < 0.05 ? 0 : s.X, 1)} Ω. The circuit behaves like a resistor, so the current follows the voltage.` +
+      (s.XC < 0.1 * s.R ? ` X<sub>C</sub> = 1/(ωC) is tiny because C is large. A large capacitor charges so little in each half cycle that almost no voltage builds up across it. To the circuit it looks like a plain wire.` : '')];
+  if (big === s.XL)
+    return [`L dominant: current lags by ${(-deg(s.phi)).toFixed(1)}°`,
+      `X<sub>L</sub> = ${fmt(s.XL, 1)} Ω is the largest. The inductor resists changes in current, so the current always arrives late, up to 90° behind the voltage.`];
+  return [`C dominant: current leads by ${deg(s.phi).toFixed(1)}°`,
+    `X<sub>C</sub> = ${fmt(s.XC, 1)} Ω is the largest because C is <b>small</b>. A small capacitor fills up fast, so its voltage rises quickly and pushes back. The current peaks while the capacitor is still empty, which is before the voltage peak, so it leads by up to 90°.`];
+}
+
+function update() {
+  for (const k in PARAMS) $(k + 'v').textContent = PARAMS[k].fmt(state[k]);
+  [...$('presets').children].forEach((b, n) => b.classList.toggle('on', n === active));
+  sol = solve();
+  const s = sol, sign = s.X >= 0 ? '+' : '−';
+  const rows = [
+    ['X<sub>L</sub> = ωL', fmt(s.XL) + ' Ω'],
+    ['X<sub>C</sub> = 1/(ωC)', fmt(s.XC) + ' Ω'],
+    ['Z = R + jX', `${fmt(s.R)} ${sign} j${fmt(Math.abs(s.X))} Ω`],
+    ['|Z|', fmt(s.Zmag) + ' Ω'],
+    ['I<sub>m</sub> = V<sub>m</sub> / |Z|', fmt(s.Im) + ' A'],
+    ['φ = −atan2(X, R)', deg(s.phi).toFixed(1) + '°'],
+  ];
+  $('out').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+  const [v, why] = explain(s);
+  $('verdict').textContent = v;
+  $('why').innerHTML = why;
+  draw();
+}
+
+function setup(cv, aspect, minH, maxH = 1e9) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = Math.min(maxH, Math.max(minH, Math.round(w * aspect)));
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.font = '12px system-ui, sans-serif';
+  return { ctx, w, h };
+}
+
+let colors;
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  colors = Object.fromEntries(['fg', 'muted', 'grid', 'v', 'i', 'r', 'l', 'c'].map(k => [k, cs.getPropertyValue('--' + k).trim()]));
+}
+
+function drawBars() {
+  const { ctx, w } = setup($('bars'), 0, 116);
+  const s = sol;
+  const rows = [['R', s.R, colors.r], ['XL', s.XL, colors.l], ['XC', s.XC, colors.c]];
+  const max = Math.max(...rows.map(r => r[1]));
+  const pl = 40, pr = 90, rowH = 36;
+  rows.forEach(([name, val, col], n) => {
+    const y = 6 + n * rowH, bw = Math.max(2, (w - pl - pr) * val / max);
+    ctx.fillStyle = colors.muted; ctx.textAlign = 'left';
+    ctx.fillText(name, 4, y + 15);
+    ctx.fillStyle = col; ctx.fillRect(pl, y, bw, 22);
+    ctx.fillStyle = colors.fg; ctx.fillText(fmt(val, 1) + ' Ω', pl + bw + 6, y + 15);
+  });
+}
+
+function drawWave() {
+  const { ctx, w, h } = setup($('wave'), 0.45, 220, 320);
+  const s = sol, T = 1 / s.f, span = 2 * T;
+  const pl = 52, pr = 56, pt = 30, pb = 26;
+  const x = t => pl + (t / span) * (w - pl - pr);
+  const mid = pt + (h - pt - pb) / 2, half = (h - pt - pb) / 2;
+  const yv = v => mid - v / (VM * 1.1) * half;
+  const yi = i => mid - i / (s.Im * 1.1) * half;
+
+  ctx.lineWidth = 1; ctx.strokeStyle = colors.grid; ctx.fillStyle = colors.muted;
+  for (let k = 0; k <= 8; k++) {
+    const t = k * T / 4;
+    ctx.beginPath(); ctx.moveTo(x(t), pt); ctx.lineTo(x(t), h - pb); ctx.stroke();
+    if (k % 2 === 0) { ctx.textAlign = 'center'; ctx.fillText((t * 1000).toFixed(0) + ' ms', x(t), h - 6); }
+  }
+  ctx.beginPath(); ctx.moveTo(pl, mid); ctx.lineTo(w - pr, mid); ctx.stroke();
+  ctx.textAlign = 'right'; ctx.fillStyle = colors.v;
+  ctx.fillText(VM + ' V', pl - 6, yv(VM) + 4); ctx.fillText('−' + VM + ' V', pl - 6, yv(-VM) + 4);
+  ctx.textAlign = 'left'; ctx.fillStyle = colors.i;
+  ctx.fillText(fmt(s.Im, 1) + ' A', w - pr + 6, yi(s.Im) + 4); ctx.fillText('−' + fmt(s.Im, 1) + ' A', w - pr + 6, yi(-s.Im) + 4);
+
+  const curve = (fn, y, col) => {
+    ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = 2;
+    for (let n = 0; n <= 400; n++) { const t = span * n / 400; n ? ctx.lineTo(x(t), y(fn(t))) : ctx.moveTo(x(t), y(fn(t))); }
+    ctx.stroke();
+  };
+  curve(t => VM * Math.cos(s.w * t), yv, colors.v);
+  curve(t => s.Im * Math.cos(s.w * t + s.phi), yi, colors.i);
+
+  // Voltage peak at t = T, nearest current peak at t = T - phi/w
+  const tv = T, ti = T - s.phi / s.w;
+  ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+  ctx.strokeStyle = colors.v; ctx.beginPath(); ctx.moveTo(x(tv), pt); ctx.lineTo(x(tv), h - pb); ctx.stroke();
+  ctx.strokeStyle = colors.i; ctx.beginPath(); ctx.moveTo(x(ti), pt); ctx.lineTo(x(ti), h - pb); ctx.stroke();
+  ctx.setLineDash([]);
+  const ya = pt - 12;
+  ctx.strokeStyle = colors.fg; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x(tv), ya); ctx.lineTo(x(ti), ya);
+  ctx.moveTo(x(tv), ya - 4); ctx.lineTo(x(tv), ya + 4); ctx.moveTo(x(ti), ya - 4); ctx.lineTo(x(ti), ya + 4); ctx.stroke();
+  ctx.fillStyle = colors.fg; ctx.textAlign = 'left';
+  const lbl = Math.abs(deg(s.phi)) < 0.5 ? 'no shift' : (s.phi < 0 ? 'i lags ' : 'i leads ') + (Math.abs(s.phi / s.w) * 1000).toFixed(2) + ' ms';
+  ctx.fillText(lbl, Math.max(x(tv), x(ti)) + 8, ya + 4);
+}
+
+function arrow(ctx, x0, y0, x1, y1, col) {
+  const len = Math.hypot(x1 - x0, y1 - y0);
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  if (len < 4) return;
+  const a = Math.atan2(y1 - y0, x1 - x0), hl = Math.min(11, len * 0.4);
+  ctx.beginPath(); ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - hl * Math.cos(a - 0.4), y1 - hl * Math.sin(a - 0.4));
+  ctx.lineTo(x1 - hl * Math.cos(a + 0.4), y1 - hl * Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+function drawPhasor() {
+  const { ctx, w, h } = setup($('phasor'), 1, 220, 260);
+  const s = sol, cx = w / 2, cy = h / 2, rad = Math.min(w, h) / 2 - 18;
+  ctx.strokeStyle = colors.grid; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - rad, cy); ctx.lineTo(cx + rad, cy); ctx.moveTo(cx, cy - rad); ctx.lineTo(cx, cy + rad); ctx.stroke();
+  ctx.fillStyle = colors.muted; ctx.textAlign = 'right'; ctx.fillText('Re', cx + rad, cy - 6);
+  ctx.textAlign = 'left'; ctx.fillText('Im', cx + 6, cy - rad + 10);
+
+  // Angle arc between V (angle 0) and I (angle phi); canvas y points down
+  const ar = rad * 0.35;
+  ctx.strokeStyle = colors.fg; ctx.lineWidth = 1; ctx.beginPath();
+  ctx.arc(cx, cy, ar, Math.min(0, -s.phi), Math.max(0, -s.phi)); ctx.stroke();
+  if (Math.abs(deg(s.phi)) > 2) {
+    ctx.fillStyle = colors.fg; ctx.textAlign = 'left';
+    ctx.fillText('φ = ' + deg(s.phi).toFixed(0) + '°', cx + ar * Math.cos(-s.phi / 2) + 6, cy + ar * Math.sin(-s.phi / 2) + (s.phi < 0 ? 12 : -4));
+  }
+  arrow(ctx, cx, cy, cx + rad, cy, colors.v);
+  const il = rad * 0.75;   // I drawn at a fixed length: only its angle matters here
+  arrow(ctx, cx, cy, cx + il * Math.cos(s.phi), cy - il * Math.sin(s.phi), colors.i);
+}
+
+function draw() { drawBars(); drawWave(); drawPhasor(); }
+
+window.addEventListener('resize', () => sol && draw());
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+
+readColors();
+load(0);
+</script>
+</body>
+</html>
