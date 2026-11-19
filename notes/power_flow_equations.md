@@ -77,7 +77,7 @@ To get back to the time domain, multiply by $e^{j\omega t}$ and take the real pa
 
 ## 3. Impedance and the phase shift
 
-What this means physically: $|Z|$ sets the size of the current, and the reactive parts $j\omega L$ and $\frac{1}{j\omega C}$ set the phase shift $\varphi$. This section shows the maths.
+What this means physically: $\lvert Z \rvert$ sets the size of the current, and the reactive parts $j\omega L$ and $\frac{1}{j\omega C}$ set the phase shift $\varphi$. This section shows the maths.
 
 Tidy $Z$ first. Since $j \cdot (-j) = 1$, we have $\frac{1}{j} = -j$. So:
 
@@ -110,7 +110,13 @@ $$\boxed{I_m = \frac{V_m}{|Z|} \qquad \varphi = -\theta_Z}$$
 
 Resonance occurs when $X_L = X_C$, at $\omega_0 = 1/\sqrt{LC}$.
 
-**Example.** $R = 10 \Omega$ and $X = 10 \Omega$ give $|Z| = 14.1 \Omega$ and $\theta_Z = 45^\circ$. So $I_m = V_m / 14.1$ and the current lags the voltage by $45^\circ$. At 50 Hz, that is a time shift of $\frac{45}{360} \times 20 \text{ms} = 2.5 \text{ms}$.
+**Example.** Take $R = 10$ Ω and $X = 10$ Ω. Then:
+
+$$|Z| = \sqrt{10^2 + 10^2} = 14.1 \ \Omega \qquad \theta_Z = \text{atan2}(10, 10) = 45^\circ$$
+
+So $I_m = V_m / 14.1$ and the current lags the voltage by 45°. At 50 Hz one cycle takes 20 ms, so the time shift is:
+
+$$\frac{45}{360} \times 20 \text{ ms} = 2.5 \text{ ms}$$
 
 Try it: [demos/rlc_series.html](../demos/rlc_series.html).
 
