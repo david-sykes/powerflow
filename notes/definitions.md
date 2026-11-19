@@ -29,4 +29,4 @@ The whole system relies on just six physics equations.
 ### Power
 
 - **Instantaneous power:** the power into any element at time $t$ is the voltage across it times the current through it:
-  $$p(t) = v(t)\,i(t)$$
+  $$p(t) = v(t) i(t)$$
