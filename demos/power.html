@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instantaneous Power</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --panel: #ffffff; --fg: #1d1d1b; --muted: #6b6a64; --grid: #e2e0d8;
+    --v: #2563eb; --i: #dc2626; --p: #1d1d1b; --pp: #15803d; --pq: #9333ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151513; --panel: #1e1e1b; --fg: #ebeae4; --muted: #9b9a93; --grid: #2e2e2a;
+      --v: #60a5fa; --i: #f87171; --p: #ebeae4; --pp: #4ade80; --pq: #c084fc;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  button { font: inherit; font-size: 14px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--grid); background: var(--panel); color: var(--fg); cursor: pointer; }
+  button.on { border-color: var(--fg); }
+  .panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  .control { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; }
+  .control label { font-size: 13px; color: var(--muted); }
+  .control b { font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; grid-column: 1 / -1; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  .stats div { font-size: 13px; color: var(--muted); }
+  .stats b { display: block; font-size: 18px; color: var(--fg); }
+  .verdict { margin: 12px 0 0; }
+  canvas { width: 100%; display: block; }
+  .legend { font-size: 13px; color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .sw { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+  .dash { background: none; border-top: 2px dashed; height: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Instantaneous power</h1>
+  <p class="sub">v(t) = V<sub>m</sub> cos(ωt) and i(t) = I<sub>m</sub> cos(ωt + φ), with V<sub>m</sub> = I<sub>m</sub> = 1. Change φ and watch how p(t) = v(t) i(t) splits into a P part and a Q part.</p>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="panel">
+    <div class="control">
+      <label for="phi">Phase shift of the current, φ</label><b id="phiv"></b>
+      <input type="range" id="phi" min="-90" max="90" step="1">
+    </div>
+    <div class="stats">
+      <div>P = ½ cos φ<b id="P"></b></div>
+      <div>Q = −½ sin φ<b id="Q"></b></div>
+      <div>power factor cos φ<b id="pf"></b></div>
+    </div>
+    <p class="verdict" id="verdict"></p>
+  </div>
+
+  <div class="panel">
+    <h2>Voltage and current</h2>
+    <canvas id="vi"></canvas>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--v)"></span>v(t)</span>
+      <span><span class="sw" style="background:var(--i)"></span>i(t)</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="text-transform:none;letter-spacing:0">Power: p(t) = P(1 + cos 2ωt) + Q sin 2ωt</h2>
+    <canvas id="pw"></canvas>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--p);height:4px"></span>p(t) = v(t) i(t)</span>
+      <span><span class="sw" style="background:var(--pp)"></span>P part: P(1 + cos 2ωt)</span>
+      <span><span class="sw" style="background:var(--pq)"></span>Q part: Q sin 2ωt</span>
+      <span><span class="sw dash" style="border-color:var(--pp)"></span>average = P</span>
+    </div>
+  </div>
+</main>
+
+<script>
+const PRESETS = [
+  { name: 'Resistor (0°)', phi: 0 },
+  { name: 'Typical load (−30°)', phi: -30 },
+  { name: 'Inductor (−90°)', phi: -90 },
+  { name: 'Capacitor (+90°)', phi: 90 },
+];
+
+const $ = id => document.getElementById(id);
+let phiDeg = 0;
+
+PRESETS.forEach(p => {
+  const b = document.createElement('button');
+  b.textContent = p.name;
+  b.addEventListener('click', () => { phiDeg = p.phi; $('phi').value = p.phi; update(); });
+  $('presets').appendChild(b);
+});
+$('phi').addEventListener('input', e => { phiDeg = +e.target.value; update(); });
+
+let colors;
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  colors = Object.fromEntries(['fg', 'muted', 'grid', 'v', 'i', 'p', 'pp', 'pq'].map(k => [k, cs.getPropertyValue('--' + k).trim()]));
+}
+
+function setup(cv, h) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.font = '12px system-ui, sans-serif';
+  return { ctx, w, h };
+}
+
+// Shared time axis: two cycles, in degrees of wt (0..720)
+function axes(ctx, w, h, ymin, ymax, ticks) {
+  const pl = 44, pr = 20, pt = 10, pb = 24;
+  const x = a => pl + (a / 720) * (w - pl - pr);
+  const y = v => pt + (ymax - v) / (ymax - ymin) * (h - pt - pb);
+  ctx.lineWidth = 1; ctx.strokeStyle = colors.grid; ctx.fillStyle = colors.muted;
+  for (let a = 0; a <= 720; a += 90) {
+    ctx.beginPath(); ctx.moveTo(x(a), pt); ctx.lineTo(x(a), h - pb); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillText(a + '°', x(a), h - 6);
+  }
+  for (const v of ticks) {
+    ctx.strokeStyle = v === 0 ? colors.muted : colors.grid;
+    ctx.beginPath(); ctx.moveTo(pl, y(v)); ctx.lineTo(w - pr, y(v)); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(v, pl - 6, y(v) + 4);
+  }
+  return { x, y };
+}
+
+function curve(ctx, x, y, fn, col, width, dash) {
+  ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+  for (let n = 0; n <= 720; n += 2) { const px = x(n), py = y(fn(n * Math.PI / 180)); n ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+function draw() {
+  const phi = phiDeg * Math.PI / 180;
+  const P = 0.5 * Math.cos(phi), Q = -0.5 * Math.sin(phi);
+
+  // Voltage and current
+  {
+    const { ctx, w, h } = setup($('vi'), 150);
+    const { x, y } = axes(ctx, w, h, -1.15, 1.15, [-1, 0, 1]);
+    curve(ctx, x, y, a => Math.cos(a), colors.v, 2);
+    curve(ctx, x, y, a => Math.cos(a + phi), colors.i, 2);
+  }
+
+  // Power
+  {
+    const { ctx, w, h } = setup($('pw'), 300);
+    const { x, y } = axes(ctx, w, h, -0.6, 1.1, [-0.5, 0, 0.5, 1]);
+    const p = a => Math.cos(a) * Math.cos(a + phi);
+
+    // Shade p(t): positive = energy into the load, negative = energy back to the source
+    ctx.beginPath(); ctx.moveTo(x(0), y(0));
+    for (let n = 0; n <= 720; n += 2) ctx.lineTo(x(n), y(Math.max(0, p(n * Math.PI / 180))));
+    ctx.lineTo(x(720), y(0)); ctx.closePath();
+    ctx.fillStyle = colors.pp + '22'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x(0), y(0));
+    for (let n = 0; n <= 720; n += 2) ctx.lineTo(x(n), y(Math.min(0, p(n * Math.PI / 180))));
+    ctx.lineTo(x(720), y(0)); ctx.closePath();
+    ctx.fillStyle = colors.i + '22'; ctx.fill();
+
+    curve(ctx, x, y, a => P, colors.pp, 1.5, [6, 4]);
+    curve(ctx, x, y, a => P * (1 + Math.cos(2 * a)), colors.pp, 2);
+    curve(ctx, x, y, a => Q * Math.sin(2 * a), colors.pq, 2);
+    curve(ctx, x, y, p, colors.p, 3.5);
+  }
+}
+
+function update() {
+  $('phiv').textContent = (phiDeg > 0 ? '+' : '') + phiDeg + '°';
+  const phi = phiDeg * Math.PI / 180;
+  const P = 0.5 * Math.cos(phi), Q = -0.5 * Math.sin(phi);
+  $('P').textContent = P.toFixed(3);
+  $('Q').textContent = (Math.abs(Q) < 5e-4 ? 0 : Q).toFixed(3);
+  $('pf').textContent = Math.cos(phi).toFixed(3);
+  [...$('presets').children].forEach((b, n) => b.classList.toggle('on', PRESETS[n].phi === phiDeg));
+
+  let v;
+  if (phiDeg === 0) v = 'Current in step with voltage. p(t) is never negative: all energy flows into the load. Q = 0.';
+  else if (Math.abs(phiDeg) === 90) v = `Current a quarter cycle ${phiDeg < 0 ? 'behind' : 'ahead'}. p(t) is positive half the time and negative half the time, so its average is zero: P = 0. All the energy goes back and forth.`;
+  else v = `Current ${phiDeg < 0 ? 'lags' : 'leads'} by ${Math.abs(phiDeg)}°. p(t) dips below zero for part of each half cycle, when energy flows back to the source. The average is still P, set by the P part alone. The Q part only moves energy back and forth.`;
+  $('verdict').textContent = v;
+  draw();
+}
+
+window.addEventListener('resize', draw);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+
+readColors();
+$('phi').value = phiDeg;
+update();
+</script>
+</body>
+</html>

@@ -135,23 +135,174 @@ Try it: [demos/rlc_series.html](../demos/rlc_series.html).
 
 ## 4. Admittance (Y, G, B)
 
-## 5. Instantaneous power to complex power (S = VI*)
+So we got to $I = V / Z$, where:
 
-## 6. Kirchhoff's current law at each bus
+$$Z = R + j\omega L + \frac{1}{j\omega C} = R + jX \qquad X = \omega L - \frac{1}{\omega C}$$
 
-## 7. Building the Ybus matrix
+| Symbol | Name | Meaning |
+| --- | --- | --- |
+| $Z$ | impedance | The ratio $V/I$. Its size scales the current and its angle sets the phase shift. |
+| $R$ | resistance | The part that turns energy into heat. |
+| $X$ | reactance | The part from energy stored in the inductor (magnetic field) and the capacitor (electric field). The element stores energy in one quarter cycle and gives it back in the next, so on average it uses no energy. |
 
-## 8. Complex power at each bus in terms of Y and V
+**Why define admittance?** $I = V/Z$ is already linear. We define $Y = 1/Z$, so $I = YV$, for two practical reasons:
 
-## 9. Separate equations for P and Q
+1. **Parallel elements add.** Impedances in series add: $Z = Z_1 + Z_2$. Admittances in parallel add: $Y = Y_1 + Y_2$. At a bus, many elements connect in parallel, and KCL adds up their currents. So admittance gives the bus equations directly. This is why the Ybus matrix (section 7) uses admittances.
+2. **No division, and no infinity.** $I = YV$ is a multiplication. An open circuit is $Y = 0$, not $Z = \infty$.
 
-## 10. Bus types and the count of equations and unknowns
+**Splitting Y into G and B.** Multiply the top and bottom by the conjugate $R - jX$, so the bottom becomes real:
 
-## 11. Newton-Raphson on the unknown subset
+$$Y = \frac{1}{R + jX} = \frac{R - jX}{(R + jX)(R - jX)} = \frac{R - jX}{R^2 + X^2}$$
 
-## 12. Fill in the remaining values
+The bottom has no $j$ because $(R + jX)(R - jX) = R^2 - j^2X^2 = R^2 + X^2$.
 
-## 13. Per-unit system
+$$Y = \frac{R}{R^2 + X^2} - j\frac{X}{R^2 + X^2} = G + jB$$
+
+$$G = \frac{R}{R^2 + X^2} \qquad B = \frac{-X}{R^2 + X^2}$$
+
+| Symbol | Name | Meaning |
+| --- | --- | --- |
+| $Y$ | admittance | $1/Z$, in siemens (S) |
+| $G$ | conductance | the real part of $Y$ |
+| $B$ | susceptance | the imaginary part of $Y$ |
+
+Two traps:
+
+- $G \neq 1/R$ unless $X = 0$. The reactance changes the conductance too.
+- $B$ has the **opposite sign** to $X$. An inductive element has $X > 0$ and $B < 0$. A capacitive element has $X < 0$ and $B > 0$.
+
+**Single elements:**
+
+| Element | $Z$ | $Y$ |
+| --- | --- | --- |
+| Resistor | $R$ | $\frac{1}{R}$ |
+| Inductor | $j\omega L$ | $\frac{-j}{\omega L}$ |
+| Capacitor | $\frac{-j}{\omega C}$ | $j\omega C$ |
+
+The capacitor admittance $j\omega C$ explains the "huge C" result from the demo. In series, a large C has a small impedance, so it acts like a wire. In parallel to ground (a shunt), a large C has a large admittance, so it draws more current. Power lines have their capacitance in shunt. In the line model, each end gets a shunt $jB/2$ with $B = \omega C$.
+
+## 5. Instantaneous power, P and Q
+
+In real circuits we often think about energy and power, because this is what power plants produce and consumers use.
+
+### Instantaneous power
+
+From the definitions, the power at any instant is voltage times current:
+
+$$p(t) = v(t) i(t) = V_m\cos(\omega t) \cdot I_m\cos(\omega t + \varphi)$$
+
+### Product to sum
+
+Add the two angle-addition formulas:
+
+$$\cos(A - B) = \cos A\cos B + \sin A\sin B$$
+
+$$\cos(A + B) = \cos A\cos B - \sin A\sin B$$
+
+The sin terms cancel, which gives:
+
+$$\cos A\cos B = \tfrac{1}{2}\left[\cos(A - B) + \cos(A + B)\right]$$
+
+Use $A = \omega t$ and $B = \omega t + \varphi$. Then $A - B = -\varphi$ and $A + B = 2\omega t + \varphi$. Also $\cos(-\varphi) = \cos\varphi$. So:
+
+$$p(t) = \frac{V_m I_m}{2}\left[\cos\varphi + \cos(2\omega t + \varphi)\right]$$
+
+### Split into P and Q
+
+Expand the second term with the angle-addition formula:
+
+$$\cos(2\omega t + \varphi) = \cos 2\omega t\cos\varphi - \sin 2\omega t\sin\varphi$$
+
+Substitute it, and group the $\cos\varphi$ terms and the $\sin\varphi$ terms:
+
+$$p(t) = \frac{V_m I_m}{2}\cos\varphi \left(1 + \cos 2\omega t\right) - \frac{V_m I_m}{2}\sin\varphi \sin 2\omega t$$
+
+Define:
+
+$$P = \frac{V_m I_m}{2}\cos\varphi \qquad Q = -\frac{V_m I_m}{2}\sin\varphi$$
+
+$$\boxed{p(t) = P\left(1 + \cos 2\omega t\right) + Q\sin 2\omega t}$$
+
+
+**>> The key thing here is that P and Q are not the time varying power and reactive power, they are the coefficients that scale the sinusoids.**
+
+### What the two parts mean
+
+Both parts oscillate at $2\omega$, because $v$ and $i$ both change sign every half cycle.
+
+| Part | Shape | Average | Meaning |
+| --- | --- | --- | --- |
+| $P(1 + \cos 2\omega t)$ | pulses between 0 and $2P$, never negative | $P$ | Energy flows one way, into the load. It does work or makes heat. |
+| $Q\sin 2\omega t$ | swings between $+Q$ and $-Q$ | 0 | Energy goes into the L or C for a quarter cycle and comes back in the next. No net work. |
+
+One way to see this: split the current into a part in step with $v$ and a part a quarter cycle out of step:
+
+$$i(t) = I_m\cos\varphi\cos\omega t - I_m\sin\varphi\sin\omega t$$
+
+- The in-step part behaves like a resistor. It gives the $P$ term.
+- The out-of-step part behaves like a pure inductor or capacitor. It gives the $Q$ term.
+
+The two extreme cases:
+
+| Case | $\varphi$ | $P$ | $Q$ | $p(t)$ |
+| --- | --- | --- | --- | --- |
+| Pure resistor | $0^\circ$ | $\frac{V_m I_m}{2}$ | 0 | always positive |
+| Pure inductor | $-90^\circ$ | 0 | $+\frac{V_m I_m}{2}$ | positive half the time, negative half the time |
+| Pure capacitor | $+90^\circ$ | 0 | $-\frac{V_m I_m}{2}$ | the same, but in the opposite order |
+
+Sign convention: an inductor absorbs reactive power ($Q > 0$) and a capacitor supplies it ($Q < 0$).
+
+Try it: [demos/power.html](../demos/power.html).
+
+## 6. Complex power (S = VI*)
+
+We've established that working with $V$ and $I$ as phasors simplifies the maths a lot. In real circuits we want to specify $P$ and $Q$, not $I$, because this is easier to work with. So we need a way to get $P$ and $Q$ from the phasors $V$ and $I$.
+
+Use the phasors from section 2: $V = V_m$ and $I = I_m e^{j\varphi}$. Multiply $V$ by the conjugate of $I$:
+
+$$VI^{\ast} = V_m \cdot I_m e^{-j\varphi} = V_m I_m e^{-j\varphi}$$
+
+The result has no time in it. Even with the rotating forms $V_m e^{j\omega t}$ and $I_m e^{j(\omega t + \varphi)}$, the conjugate makes the $e^{j\omega t}$ terms cancel. This is why we use the conjugate: $VI$ would keep a $2\omega t$ term.
+
+Expand with Euler's formula:
+
+$$VI^{\ast} = V_m I_m\cos\varphi - jV_m I_m\sin\varphi$$
+
+Compare with $P$ and $Q$ from section 5:
+
+$$P = \frac{V_m I_m}{2}\cos\varphi \qquad Q = -\frac{V_m I_m}{2}\sin\varphi$$
+
+So half of $VI^{\ast}$ gives both at once:
+
+$$\boxed{S = \tfrac{1}{2}VI^{\ast} = P + jQ}$$
+
+$S$ does not define $P$ and $Q$. They have their physical meaning from $p(t)$: $P$ is the average power and $Q$ is the size of the back-and-forth part. $S$ is a short way to calculate both from the phasors, without going back to the time domain.
+
+The $\frac{1}{2}$ is a nuisance. Section 7 removes it.
+
+## 7. RMS values
+The 1/2 in the definition of S is considered a nuisance for engineers.
+
+If we define V = V_rms = V_m / sqrt(2) 
+
+We get v(t) = sqrt(2) Re{V exp(jwt)}
+We also define I = I_rms = I_m / sqrt(2)
+
+## 8. Kirchhoff's current law at each bus
+
+## 9. Building the Ybus matrix
+
+## 10. Complex power at each bus in terms of Y and V
+
+## 11. Separate equations for P and Q
+
+## 12. Bus types and the count of equations and unknowns
+
+## 13. Newton-Raphson on the unknown subset
+
+## 14. Fill in the remaining values
+
+## 15. Per-unit system
 
 ## Appendix: complex number toolkit
 
