@@ -1,5 +1,7 @@
 # Power flow equations
 
+This note models one phase of a balanced three-phase network. Shunts, transformers, three-phase and field conventions are in [real_world_ac_modelling.md](real_world_ac_modelling.md).
+
 ## 1. Voltage and current in an RLC circuit
 
 ![Series RLC circuit](diagrams/series_rlc.svg)
@@ -147,7 +149,7 @@ $$Z = R + j\omega L + \frac{1}{j\omega C} = R + jX \qquad X = \omega L - \frac{1
 
 **Why define admittance?** $I = V/Z$ is already linear. We define $Y = 1/Z$, so $I = YV$, for two practical reasons:
 
-1. **Parallel elements add.** Impedances in series add: $Z = Z_1 + Z_2$. Admittances in parallel add: $Y = Y_1 + Y_2$. At a bus, many elements connect in parallel, and KCL adds up their currents. So admittance gives the bus equations directly. This is why the Ybus matrix (section 7) uses admittances.
+1. **Parallel elements add.** Impedances in series add: $Z = Z_1 + Z_2$. Admittances in parallel add: $Y = Y_1 + Y_2$. At a bus, many elements connect in parallel, and KCL adds up their currents. So admittance gives the bus equations directly. This is why the Ybus matrix (section 9) uses admittances.
 2. **No division, and no infinity.** $I = YV$ is a multiplication. An open circuit is $Y = 0$, not $Z = \infty$.
 
 **Splitting Y into G and B.** Multiply the top and bottom by the conjugate $R - jX$, so the bottom becomes real:
@@ -280,29 +282,214 @@ $S$ does not define $P$ and $Q$. They have their physical meaning from $p(t)$: $
 
 The $\frac{1}{2}$ is a nuisance. Section 7 removes it.
 
-## 7. RMS values
-The 1/2 in the definition of S is considered a nuisance for engineers.
+## 7. RMS values and phase angles
 
-If we define V = V_rms = V_m / sqrt(2) 
+We need two adjustments to our definitions to make life easier for real problems.
 
-We get v(t) = sqrt(2) Re{V exp(jwt)}
-We also define I = I_rms = I_m / sqrt(2)
+### Adjustment 1: RMS values
+
+To remove the annoying $\frac{1}{2}$ factors, we work with RMS values in place of peak values:
+
+$$V_{rms} = \frac{V_m}{\sqrt{2}} \qquad I_{rms} = \frac{I_m}{\sqrt{2}}$$
+
+The real waveform does not change. We only write it in a different way:
+
+$$v(t) = V_m\cos(\omega t) = \sqrt{2} V_{rms}\cos(\omega t)$$
+
+RMS also has a clean physical meaning. $V_{rms}$ is the DC voltage that gives the same average heat in a resistor. The name says how to calculate it: the **root** of the **mean** of the **square** of $v(t)$. For a sine wave, the mean of $\cos^2$ is $\frac{1}{2}$, which gives the $\sqrt{2}$. Grid voltages are always quoted as RMS: the 230 V supply has a peak of 325 V.
+
+### Adjustment 2: phase angles
+
+So far we set the voltage source at zero phase angle and measured everything relative to it. In a network, every bus has its own voltage, and each voltage has its own phase angle. So the voltage and the current each get an angle, $\theta_V$ and $\theta_I$:
+
+$$v(t) = \text{Re}\lbrace \sqrt{2} V_{rms} e^{j(\omega t + \theta_V)} \rbrace$$
+
+$$i(t) = \text{Re}\lbrace \sqrt{2} I_{rms} e^{j(\omega t + \theta_I)} \rbrace$$
+
+The phase shift is the angle of the current, measured from the voltage across the same element:
+
+$$\varphi = \theta_I - \theta_V$$
+
+This matches section 1, where the source was the reference ($\theta_V = 0$), so $\varphi = \theta_I$.
+
+### RMS phasors
+
+Redefine the phasors with the RMS size and the phase angle:
+
+$$V = V_{rms} e^{j\theta_V} \qquad I = I_{rms} e^{j\theta_I}$$
+
+Then:
+
+$$v(t) = \text{Re}\lbrace \sqrt{2} V e^{j\omega t} \rbrace \qquad i(t) = \text{Re}\lbrace \sqrt{2} I e^{j\omega t} \rbrace$$
+
+$V = ZI$ does not change, because both sides scale by the same $\frac{1}{\sqrt{2}}$. **From here on, all phasors are RMS phasors.**
+
+### Complex power with RMS phasors
+
+$$VI^{\ast} = V_{rms} e^{j\theta_V} \cdot I_{rms} e^{-j\theta_I} = V_{rms} I_{rms} e^{j(\theta_V - \theta_I)} = V_{rms} I_{rms} e^{-j\varphi}$$
+
+Since $V_{rms} I_{rms} = \frac{V_m I_m}{2}$, the P and Q from section 5 become:
+
+$$P = V_{rms} I_{rms}\cos\varphi \qquad Q = -V_{rms} I_{rms}\sin\varphi$$
+
+Expand $VI^{\ast}$ with Euler's formula and compare:
+
+$$VI^{\ast} = V_{rms} I_{rms}\cos\varphi - jV_{rms} I_{rms}\sin\varphi = P + jQ$$
+
+The $\frac{1}{2}$ has gone:
+
+$$\boxed{S = VI^{\ast} = P + jQ}$$
+
+$S$ depends only on the angle difference $\theta_V - \theta_I$. So the choice of the reference angle does not change the power.
 
 ## 8. Kirchhoff's current law at each bus
 
+If we consider one bus, we know from KCL that the currents flowing in and out sum to zero. Current can flow in from devices at the bus (generators inject, loads draw), and it can flow out to other buses through the branches.
+
+**KCL holds for phasors.** KCL holds for the real currents at every instant: $\sum i(t) = 0$. Every current is $\text{Re}\lbrace \sqrt{2} I e^{j\omega t} \rbrace$ with the same $\omega$, so the $e^{j\omega t}$ cancels and the phasors also sum to zero. So from here on we work only with phasors.
+
+![KCL at one bus](diagrams/kcl_bus.svg)
+
+**Notation.** Two kinds of current, so two kinds of subscript:
+
+| Symbol | Meaning |
+| --- | --- |
+| $i$ | the bus we write KCL for |
+| $k$ | a neighbour bus, connected to $i$ by a branch |
+| $I_i$ | the net injection at bus $i$ from its devices (**one** subscript) |
+| $I_{ik}$ | the current in the branch from $i$ to $k$ (**two** subscripts: from, to) |
+| $y_{ik}$ | the admittance of the branch between $i$ and $k$ |
+
+We use $k$ and not $j$ for the neighbour, because $j$ is the imaginary unit.
+
+**Sign convention.** $I_i$ is positive into the bus: a generator gives a positive injection and a load gives a negative one. $I_{ik}$ is positive away from bus $i$, towards bus $k$.
+
+**Ohm's law across a branch:**
+
+$$I_{ik} = y_{ik}(V_i - V_k)$$
+
+**KCL at bus i:** what the devices inject leaves through the branches:
+
+$$I_i = \sum_k I_{ik}$$
+
+**Combine the two:**
+
+$$\boxed{I_i = \sum_k y_{ik}(V_i - V_k)}$$
+
+The sum runs over the neighbours of bus $i$ only. One equation per bus.
+
+Shunts (branches to ground, where $V = 0$) add one more term. See [real_world_ac_modelling.md](real_world_ac_modelling.md).
+
 ## 9. Building the Ybus matrix
+
+Arrange all the bus injections $I_i$ as a vector $\mathbf{I}$, and all the bus voltages $V_i$ as a vector $\mathbf{V}$. We need a matrix $\mathbf{Y}_{bus}$ that satisfies:
+
+$$\mathbf{I} = \mathbf{Y}_{bus}\mathbf{V}$$
+
+$\mathbf{Y}_{bus}$ is one $N \times N$ matrix for the whole network. Row $i$ is the KCL equation for bus $i$.
+
+**Example.** Take 4 buses, with branches 1–2, 1–3 and 3–4.
+
+![4-bus example network](diagrams/ybus_example.svg)
+
+Start from section 8, $I_i = \sum_k y_{ik}(V_i - V_k)$, and collect the terms for bus 1:
+
+$$I_1 = y_{12}(V_1 - V_2) + y_{13}(V_1 - V_3) = (y_{12} + y_{13})V_1 - y_{12}V_2 - y_{13}V_3$$
+
+Do the same for every bus, and write the result as a matrix:
+
+```math
+\begin{pmatrix} I_1 \\ I_2 \\ I_3 \\ I_4 \end{pmatrix}
+=
+\begin{pmatrix}
+y_{12} + y_{13} & -y_{12} & -y_{13} & 0 \\
+-y_{12} & y_{12} & 0 & 0 \\
+-y_{13} & 0 & y_{13} + y_{34} & -y_{34} \\
+0 & 0 & -y_{34} & y_{34}
+\end{pmatrix}
+\begin{pmatrix} V_1 \\ V_2 \\ V_3 \\ V_4 \end{pmatrix}
+```
+
+So two rules always construct $\mathbf{Y}_{bus}$:
+
+1. **Diagonal** $Y_{ii}$: the sum of the admittances of all branches connected to bus $i$.
+2. **Off-diagonal** $Y_{ik}$: $-y_{ik}$ if a branch connects $i$ and $k$, and 0 if not.
+
+In code: start with a matrix of zeros. For each branch from $i$ to $k$, add $y_{ik}$ to $Y_{ii}$ and $Y_{kk}$, and subtract $y_{ik}$ from $Y_{ik}$ and $Y_{ki}$.
+
+Don't confuse $y_{ik}$ (the admittance of one branch) with $Y_{ik}$ (an entry in the matrix).
+
+**Properties:**
+
+- **Symmetric:** $Y_{ik} = Y_{ki}$, because a branch connects both ways.
+- **Mostly zeros (sparse):** each bus only connects to a few others.
+- **Each row sums to zero** (without shunts). If all voltages are equal, no current flows. So $\mathbf{Y}_{bus}$ is singular: we can't solve $\mathbf{I} = \mathbf{Y}_{bus}\mathbf{V}$ for $\mathbf{V}$ without fixing one voltage as a reference. This is the reason for the slack bus (section 13).
+
+Shunts add to the diagonal only. See [real_world_ac_modelling.md](real_world_ac_modelling.md).
 
 ## 10. Complex power at each bus in terms of Y and V
 
+To cover:
+
+- S_i = V_i I_i*
+- Substitute I_i from Ybus: S_i = V_i Σ_k Y_ik* V_k*
+- Loads and generators are given in P and Q, so this is the equation we solve
+
 ## 11. Separate equations for P and Q
 
-## 12. Bus types and the count of equations and unknowns
+To cover:
 
-## 13. Newton-Raphson on the unknown subset
+- Write V_i in polar form (|V_i|, θ_i) and Y_ik = G_ik + jB_ik
+- Take the real part (P_i) and the imaginary part (Q_i)
+- Two real equations per bus, in terms of |V| and θ
 
-## 14. Fill in the remaining values
+## 12. High X and high R: decoupling
 
-## 15. Per-unit system
+To cover:
+
+- One line between two buses with R = 0: P ≈ (V1 V2 / X) sin(θ1 − θ2) and Q ≈ (V1 / X)(V1 − V2 cos(θ1 − θ2))
+- High X/R (transmission): P goes with angle difference, Q goes with voltage difference
+- Low X/R (distribution): P and Q mix, so P also changes voltage (why solar raises LV voltage)
+- Why distribution networks need the full Newton-Raphson
+- Lead-in to DC power flow: see [dc_power_flow.md](dc_power_flow.md)
+
+## 13. Bus types and the count of equations and unknowns
+
+To cover:
+
+- Each bus has four quantities: P, Q, |V|, θ. Two equations, so two must be known
+- PQ bus (load): P and Q known
+- PV bus (generator): P and |V| known
+- Slack bus: |V| and θ known. Supplies the losses and sets the angle reference
+- Count: equations = unknowns = n_PV + 2 n_PQ
+
+## 14. Newton-Raphson on the unknown subset
+
+To cover:
+
+- Write the problem as mismatch f(x) = S_specified − S_calculated(x) = 0
+- Linearise: J Δx = −f(x), then update x and repeat
+- The Jacobian: four blocks (dP/dθ, dP/d|V|, dQ/dθ, dQ/d|V|)
+- First build J by finite differences, then derive it analytically and compare
+- Flat start (|V| = 1, θ = 0), tolerance, max iterations
+
+## 15. Fill in the remaining values
+
+To cover:
+
+- With all V known, calculate S_i directly for the slack bus (P, Q) and PV buses (Q)
+- Branch flows and losses from V and the branch admittances
+- No iteration needed
+
+## 16. Per-unit system
+
+To cover:
+
+- Base MVA (whole network, three-phase) and base kV (per bus, line-to-line)
+- Base impedance Z_base = kV_base² / MVA_base, and Z_pu = Z_ohm / Z_base
+- Transformers at nominal ratio become 1:1
+- The √3 factors cancel
+- Voltages near 1.0 make errors easy to see
 
 ## Appendix: complex number toolkit
 
