@@ -429,11 +429,54 @@ Shunts add to the diagonal only. See [real_world_ac_modelling.md](real_world_ac_
 
 ## 10. Complex power at each bus in terms of Y and V
 
-To cover:
+In reality, we don't frame grid studies in terms of the current injected at each bus. We know $P$ and $Q$ for the loads and generators, and $|V|$ at some buses. So we write the bus equations in terms of $S$.
 
-- S_i = V_i I_i*
-- Substitute I_i from Ybus: S_i = V_i Σ_k Y_ik* V_k*
-- Loads and generators are given in P and Q, so this is the equation we solve
+### What $S_i = V_i I_i^{\ast}$ means at a bus
+
+Before, we used $S = VI^{\ast}$ for one element, with $V$ the voltage across it and $I$ the current through it. At a bus we use the same formula:
+
+- $V_i$ is the voltage of bus $i$, measured to ground (in a three-phase network, to the neutral).
+- The devices at bus $i$ (loads and generators) connect between the bus and ground. So the voltage across them is $V_i$, and the current through them is the injection $I_i$.
+
+So $S_i = V_i I_i^{\ast}$ is the power the devices at bus $i$ exchange with the network. With the injection sign convention, a generator gives $S_i > 0$ and a load gives $S_i < 0$. The power does not stay at the bus. It flows into the network through the branches.
+
+### Substitute the current from Ybus
+
+Row $i$ of $\mathbf{I} = \mathbf{Y}_{bus}\mathbf{V}$, written out, is:
+
+$$I_i = \sum_k Y_{ik} V_k$$
+
+Here the sum runs over **all** buses $k$, including $k = i$. This is the same equation as section 8, $I_i = \sum_k y_{ik}(V_i - V_k)$, but in the matrix-row form. For example, for bus 1 in the section 9 example:
+
+$$I_1 = Y_{11}V_1 + Y_{12}V_2 + Y_{13}V_3 + Y_{14}V_4 = (y_{12} + y_{13})V_1 - y_{12}V_2 - y_{13}V_3$$
+
+To conjugate, use two rules: the conjugate of a sum is the sum of the conjugates, and the conjugate of a product is the product of the conjugates. So:
+
+$$I_i^{\ast} = \sum_k Y_{ik}^{\ast} V_k^{\ast}$$
+
+Substitute into $S_i = V_i I_i^{\ast}$:
+
+$$\boxed{S_i = V_i \sum_k Y_{ik}^{\ast} V_k^{\ast}}$$
+
+$V_i$ stays outside the sum and is not conjugated. Loads and generators are given in $P$ and $Q$, so this is the equation we solve.
+
+### What the conjugates do
+
+On its own, a conjugate has no physical meaning. It flips the angle of a phasor, or the sign of the imaginary part:
+
+$$V = |V| e^{j\theta} \quad\Rightarrow\quad V^{\ast} = |V| e^{-j\theta}$$
+
+$$Y = G + jB \quad\Rightarrow\quad Y^{\ast} = G - jB$$
+
+For example, a branch with $R = 1$ and $X = 3$ has $Y = \frac{1}{1 + 3j} = 0.1 - 0.3j$, so $Y^{\ast} = 0.1 + 0.3j$.
+
+The meaning comes in the product. Take one term of the sum, for bus $i$ and bus $k$:
+
+$$V_i Y_{ik}^{\ast} V_k^{\ast} = Y_{ik}^{\ast} |V_i| |V_k| e^{j(\theta_i - \theta_k)}$$
+
+The angles subtract. So each term depends on the branch (through $Y_{ik}^{\ast}$), the sizes of the two voltages, and the angle **difference** between the two buses. It never depends on an absolute angle, so the choice of the reference angle does not change the power. Power flows because of angle differences between buses.
+
+In section 11, the $e^{j(\theta_i - \theta_k)}$ gives the $\cos(\theta_i - \theta_k)$ and $\sin(\theta_i - \theta_k)$ terms, and $G$ and $B$ decide how much each one adds to $P$ and to $Q$.
 
 ## 11. Separate equations for P and Q
 
