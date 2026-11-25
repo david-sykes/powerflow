@@ -1,6 +1,6 @@
 """Draw the 4-bus example network for the Ybus section.
 
-Used in notes/power_flow_equations.md section 9.
+Used in notes/02_power_flow_equations.md section 9.
 Run: uv run python notes/diagrams/ybus_example.py
 """
 

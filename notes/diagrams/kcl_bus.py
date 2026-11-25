@@ -1,6 +1,6 @@
 """Draw KCL at one bus: an injection I_i and branch currents to two neighbours.
 
-Used in notes/power_flow_equations.md section 8.
+Used in notes/02_power_flow_equations.md section 8.
 Run: uv run python notes/diagrams/kcl_bus.py
 """
 

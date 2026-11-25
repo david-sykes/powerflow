@@ -1,6 +1,6 @@
 """Draw Z and I in the complex plane for inductive and capacitive cases.
 
-Used in notes/power_flow_equations.md section 3.
+Used in notes/02_power_flow_equations.md section 3.
 Run: uv run python notes/diagrams/impedance_plane.py
 """
 

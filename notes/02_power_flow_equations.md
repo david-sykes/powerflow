@@ -1,6 +1,6 @@
 # Power flow equations
 
-This note models one phase of a balanced three-phase network. Shunts, transformers, three-phase and field conventions are in [real_world_ac_modelling.md](real_world_ac_modelling.md).
+This note models one phase of a balanced three-phase network. Three-phase modelling, per-unit, shunts, transformers and field conventions are in [03_network_modelling.md](03_network_modelling.md).
 
 ## 1. Voltage and current in an RLC circuit
 
@@ -378,7 +378,7 @@ $$\boxed{I_i = \sum_k y_{ik}(V_i - V_k)}$$
 
 The sum runs over the neighbours of bus $i$ only. One equation per bus.
 
-Shunts (branches to ground, where $V = 0$) add one more term. See [real_world_ac_modelling.md](real_world_ac_modelling.md).
+Shunts (branches to ground, where $V = 0$) add one more term. See [03_network_modelling.md](03_network_modelling.md).
 
 ## 9. Building the Ybus matrix
 
@@ -423,9 +423,9 @@ Don't confuse $y_{ik}$ (the admittance of one branch) with $Y_{ik}$ (an entry in
 
 - **Symmetric:** $Y_{ik} = Y_{ki}$, because a branch connects both ways.
 - **Mostly zeros (sparse):** each bus only connects to a few others.
-- **Each row sums to zero** (without shunts). If all voltages are equal, no current flows. So $\mathbf{Y}_{bus}$ is singular: we can't solve $\mathbf{I} = \mathbf{Y}_{bus}\mathbf{V}$ for $\mathbf{V}$ without fixing one voltage as a reference. This is the reason for the slack bus (section 13).
+- **Each row sums to zero** (without shunts). If all voltages are equal, no current flows. So $\mathbf{Y}_{bus}$ is singular: we can't solve $\mathbf{I} = \mathbf{Y}_{bus}\mathbf{V}$ for $\mathbf{V}$ without fixing one voltage as a reference. This is the reason for the slack bus (see [04_ac_power_flow.md](04_ac_power_flow.md)).
 
-Shunts add to the diagonal only. See [real_world_ac_modelling.md](real_world_ac_modelling.md).
+Shunts add to the diagonal only. See [03_network_modelling.md](03_network_modelling.md).
 
 ## 10. Complex power at each bus in terms of Y and V
 
@@ -480,59 +480,62 @@ In section 11, the $e^{j(\theta_i - \theta_k)}$ gives the $\cos(\theta_i - \thet
 
 ## 11. Separate equations for P and Q
 
-To cover:
+We finished section 10 with:
 
-- Write V_i in polar form (|V_i|, θ_i) and Y_ik = G_ik + jB_ik
-- Take the real part (P_i) and the imaginary part (Q_i)
-- Two real equations per bus, in terms of |V| and θ
+$$S_i = V_i \sum_k Y_{ik}^{\ast} V_k^{\ast}$$
 
-## 12. High X and high R: decoupling
+$V_i$ does not depend on $k$, so move it inside the sum and expand one term at a time:
 
-To cover:
+$$S_i = \sum_k V_i Y_{ik}^{\ast} V_k^{\ast}$$
 
-- One line between two buses with R = 0: P ≈ (V1 V2 / X) sin(θ1 − θ2) and Q ≈ (V1 / X)(V1 − V2 cos(θ1 − θ2))
-- High X/R (transmission): P goes with angle difference, Q goes with voltage difference
-- Low X/R (distribution): P and Q mix, so P also changes voltage (why solar raises LV voltage)
-- Why distribution networks need the full Newton-Raphson
-- Lead-in to DC power flow: see [dc_power_flow.md](dc_power_flow.md)
+**Step 1. Voltages in polar form.** Write $V_i = |V_i| e^{j\theta_i}$ and $\theta_{ik} = \theta_i - \theta_k$:
 
-## 13. Bus types and the count of equations and unknowns
+$$V_i V_k^{\ast} = |V_i| e^{j\theta_i} |V_k| e^{-j\theta_k} = |V_i||V_k| e^{j\theta_{ik}}$$
 
-To cover:
+**Step 2. Admittance in rectangular form.** $Y_{ik} = G_{ik} + jB_{ik}$, so $Y_{ik}^{\ast} = G_{ik} - jB_{ik}$:
 
-- Each bus has four quantities: P, Q, |V|, θ. Two equations, so two must be known
-- PQ bus (load): P and Q known
-- PV bus (generator): P and |V| known
-- Slack bus: |V| and θ known. Supplies the losses and sets the angle reference
-- Count: equations = unknowns = n_PV + 2 n_PQ
+$$S_i = \sum_k |V_i||V_k| (G_{ik} - jB_{ik}) e^{j\theta_{ik}}$$
 
-## 14. Newton-Raphson on the unknown subset
+**Step 3. Euler's formula** on the angle term:
 
-To cover:
+$$P_i + jQ_i = \sum_k |V_i||V_k| (G_{ik} - jB_{ik})(\cos\theta_{ik} + j\sin\theta_{ik})$$
 
-- Write the problem as mismatch f(x) = S_specified − S_calculated(x) = 0
-- Linearise: J Δx = −f(x), then update x and repeat
-- The Jacobian: four blocks (dP/dθ, dP/d|V|, dQ/dθ, dQ/d|V|)
-- First build J by finite differences, then derive it analytically and compare
-- Flat start (|V| = 1, θ = 0), tolerance, max iterations
+**Step 4. Multiply the brackets.** The term $-jB_{ik} \cdot j\sin\theta_{ik}$ becomes $+B_{ik}\sin\theta_{ik}$, because $j^2 = -1$:
 
-## 15. Fill in the remaining values
+$$P_i + jQ_i = \sum_k |V_i||V_k| \left( G_{ik}\cos\theta_{ik} + jG_{ik}\sin\theta_{ik} - jB_{ik}\cos\theta_{ik} + B_{ik}\sin\theta_{ik} \right)$$
 
-To cover:
+**Step 5. Take the real and imaginary parts.** $|V_i|$ comes out of the sum. $|V_k|$ stays inside, because it changes with $k$:
 
-- With all V known, calculate S_i directly for the slack bus (P, Q) and PV buses (Q)
-- Branch flows and losses from V and the branch admittances
-- No iteration needed
+$$\boxed{P_i = |V_i| \sum_k |V_k| \left( G_{ik}\cos\theta_{ik} + B_{ik}\sin\theta_{ik} \right)}$$
 
-## 16. Per-unit system
+$$\boxed{Q_i = |V_i| \sum_k |V_k| \left( G_{ik}\sin\theta_{ik} - B_{ik}\cos\theta_{ik} \right)}$$
 
-To cover:
+**What we have.** Each bus gives two real equations. The unknowns are $|V|$ and $\theta$ at the buses. $G_{ik}$ and $B_{ik}$ are fixed numbers from $\mathbf{Y}_{bus}$.
 
-- Base MVA (whole network, three-phase) and base kV (per bus, line-to-line)
-- Base impedance Z_base = kV_base² / MVA_base, and Z_pu = Z_ohm / Z_base
-- Transformers at nominal ratio become 1:1
-- The √3 factors cancel
-- Voltages near 1.0 make errors easy to see
+- The voltages are in polar form, because $|V|$ and $\theta$ are what the solver finds.
+- The admittances are in rectangular form, because $G$ and $B$ come straight from $\mathbf{Y}_{bus}$.
+
+**Check with the $k = i$ term.** $\theta_{ii} = 0$, so $\cos\theta_{ii} = 1$ and $\sin\theta_{ii} = 0$. This term gives $|V_i|^2 G_{ii}$ in $P_i$ and $-|V_i|^2 B_{ii}$ in $Q_i$.
+
+The equations are nonlinear: they have products of $|V|$ terms, and $\sin$ and $\cos$ of the angles. So we can't solve them in one step. The [AC power flow note](04_ac_power_flow.md) solves them with Newton-Raphson.
+
+
+## Conclusion
+
+We've gone from simple physics definitions through to deriving the power flow equations for P and Q in terms of bus voltages, phase angles and line admittances. 
+
+These two equations form the basis of power flow solvers:
+
+$$\boxed{P_i = |V_i| \sum_k |V_k| \left( G_{ik}\cos\theta_{ik} + B_{ik}\sin\theta_{ik} \right)}$$
+
+$$\boxed{Q_i = |V_i| \sum_k |V_k| \left( G_{ik}\sin\theta_{ik} - B_{ik}\cos\theta_{ik} \right)}$$
+
+The next notes model real equipment and solve the equations:
+
+- [03_network_modelling.md](03_network_modelling.md): per-unit, three-phase, lines, transformers, shunts and field conventions.
+- [04_ac_power_flow.md](04_ac_power_flow.md): the full nonlinear equations, solved with Newton-Raphson.
+- [05_dc_power_flow.md](05_dc_power_flow.md): a linear approximation for networks with high X/R.
+
 
 ## Appendix: complex number toolkit
 

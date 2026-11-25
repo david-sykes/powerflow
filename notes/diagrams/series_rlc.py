@@ -1,4 +1,4 @@
-"""Draw the series RLC circuit for notes/power_flow_equations.md section 1.
+"""Draw the series RLC circuit for notes/02_power_flow_equations.md section 1.
 
 Run: uv run python notes/diagrams/series_rlc.py
 """
